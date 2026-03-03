@@ -1274,13 +1274,12 @@ function applySheetData(results){
 }
 
 function parseSlides(txt){
-  // Parse "/ 1 Role: copy || /2 Role: copy" back into segments
   if(!txt) return [];
   var segs = [];
   var parts = txt.split('||');
   parts.forEach(function(part){
     part = part.trim();
-    var m = part.match(/^\/?(\d+)\s+([^:]+):\s*(.*)/);
+    var m = part.match(/^\/?\d+/);
     if(m){
       segs.push({ num: parseInt(m[1]), role: m[2].trim(), copy: m[3].trim().replace(/\s*\|\s*/g,'\n'), visual:'' });
     }
