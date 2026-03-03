@@ -1146,6 +1146,7 @@ function renderMusicTab(code){
 
 /* ── GOOGLE SHEETS INTEGRATION ── */
 var SHEET_URL_KEY = 'vs_sheet_url';
+var SHEET_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxKT92UGu0Tl9hMFPnXfvxyelaP1GuVRjbnvXohb2delKB-MHmhl2ihyGSuGqVM3qSxfw/exec';
 
 function getSheetUrl(){
   try { return localStorage.getItem(SHEET_URL_KEY)||''; } catch(e){ return ''; }
@@ -1172,26 +1173,42 @@ function loadFromSheet(url){
   var results = {};
   var pending = tabs.length;
   
+  // Global timeout - if Sheet doesn't respond in 8s, fall back to local data
+  var timeout = setTimeout(function(){
+    console.warn('Sheet timeout — using local data');
+    setSheetStatus('Sheet timeout — using local data','#e8a');
+    showSheetBar();
+    hideOverlay();
+    goToday();
+  }, 8000);
+
   tabs.forEach(function(tab){
-    fetch(url + '?tab=' + tab)
+    var controller = new AbortController();
+    setTimeout(function(){ controller.abort(); }, 7000);
+    
+    fetch(url + '?tab=' + tab, {signal: controller.signal})
       .then(function(r){ return r.json(); })
       .then(function(data){
         results[tab] = data;
         pending--;
-        if(pending === 0) applySheetData(results);
+        if(pending === 0){
+          clearTimeout(timeout);
+          applySheetData(results);
+        }
       })
       .catch(function(err){
         console.warn('Sheet fetch failed for ' + tab + ':', err);
         pending--;
         if(pending === 0){
+          clearTimeout(timeout);
           if(Object.keys(results).length === 0){
-            // All failed - use embedded data
             setSheetStatus('Sheet offline — using local data','#e8a');
             showSheetBar();
+            hideOverlay();
+            goToday();
           } else {
             applySheetData(results);
           }
-          hideOverlay();
         }
       });
   });
@@ -1280,24 +1297,15 @@ function showSheetBar(){
   if(!bar) return;
   bar.classList.remove('hidden');
   var input=document.getElementById('sheet-url-input');
-  var saved=getSheetUrl();
+  var saved=getSheetUrl()||SHEET_URL_DEFAULT;
   if(saved && input) input.value=saved;
 }
 
-// Init: try to load from saved sheet URL
+// Init: open immediately with local data, connect Sheet via button
 (function initSheet(){
-  var url = getSheetUrl();
-  if(url){
-    loadFromSheet(url);
-  } else {
-    // No URL saved yet — show the URL bar, use embedded data
-    document.getElementById('load-source-txt').textContent='Using local data — connect Google Sheets below';
-    setTimeout(function(){
-      hideOverlay();
-      showSheetBar();
-      goToday();
-    }, 800);
-  }
+  hideOverlay();
+  showSheetBar();
+  goToday();
 })();
 
 </script>
